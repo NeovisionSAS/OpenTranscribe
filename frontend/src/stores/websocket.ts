@@ -6,6 +6,10 @@ import axiosInstance from '$lib/axios';
 import { generateId } from '$lib/utils/ids';
 import { reconnectDelayMs } from '$lib/utils/backoff';
 import { isCloudEdition } from '$lib/edition';
+import { isLLMAvailable } from '$stores/llmStatus';
+
+/** Messages about stages only an LLM runs (summary, topics). */
+const LLM_ONLY_MESSAGE_TYPES = new Set(['summarization_status', 'topic_extraction_status']);
 
 // Define notification types
 export type NotificationType =
@@ -324,6 +328,9 @@ function createWebSocketStore() {
         socket.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
+
+            // Status of LLM-only stages means nothing to a deployment without an LLM.
+            if (LLM_ONLY_MESSAGE_TYPES.has(data.type) && !get(isLLMAvailable)) return;
 
             // Handle different message types
             if (data.type === 'connection_established') {
@@ -646,7 +653,14 @@ function createWebSocketStore() {
 
               // Synthesize message for admin tasks that don't have one
               const translate = get(t);
-              let currentStep = data.data.message || '';
+              // The backend writes transcription step text in English; outside a
+              // failure (whose detail matters) show the interface's own words.
+              let currentStep =
+                data.type === 'transcription_status' && status === 'completed'
+                  ? translate('fileDetail.processingComplete')
+                  : data.type === 'transcription_status' && status === 'processing'
+                    ? translate('common.processing')
+                    : data.data.message || '';
               if (!currentStep && isAdminProgressType) {
                 if (data.type.startsWith('reindex')) {
                   const idx = data.data.indexed_files ?? data.data.stats?.indexed_files ?? 0;
@@ -1026,6 +1040,11 @@ function createWebSocketStore() {
         return translate('notifications.fileUpload');
       case 'file_created':
         return translate('notifications.fileCreated');
+      // Silent gallery refreshes: never shown in the panel, but titled like the rest.
+      case 'search_indexing_complete':
+      case 'transcript_ready':
+      case 'clustering_file_complete':
+        return translate('notifications.galleryUpdate');
       case 'file_updated':
         return translate('notifications.fileUpdated');
       case 'file_deleted':

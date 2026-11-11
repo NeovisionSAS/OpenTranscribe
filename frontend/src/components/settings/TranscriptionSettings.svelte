@@ -17,6 +17,7 @@
   import { toastStore } from '$stores/toast';
   import { settingsModalStore } from '$stores/settingsModalStore';
   import { t } from '$stores/locale';
+  import { isLLMAvailable } from '$stores/llmStatus';
   import Spinner from '../ui/Spinner.svelte';
 
   const dispatch = createEventDispatcher();
@@ -549,7 +550,8 @@
           {/if}
         </div>
 
-        <!-- LLM Output Language -->
+        <!-- LLM Output Language: only meaningful when an LLM writes summaries -->
+        {#if $isLLMAvailable}
         <div class="form-group">
           <label for="llm-output-language" class="form-label">
             {$t('settings.transcription.aiSummaryLanguage')}
@@ -575,6 +577,7 @@
           </select>
           <p class="input-hint">{$t('settings.transcription.aiSummaryLanguageHint')}</p>
         </div>
+        {/if}
 
         <div class="defaults-info">
           <span class="defaults-label">{$t('settings.transcription.defaults')}</span>

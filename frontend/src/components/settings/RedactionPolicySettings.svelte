@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { t } from '$stores/locale';
+  import { isLLMAvailable } from '$stores/llmStatus';
   import { settingsModalStore } from '$stores/settingsModalStore';
   import { toastStore } from '$stores/toast';
   import {
@@ -132,6 +133,7 @@
         </div>
         <p class="field-desc">{$t('settings.redactionPolicy.forceExportRedactedHelp')}</p>
 
+        {#if $isLLMAvailable}
         <div class="setting-row" style="margin-top: 0.75rem;">
           <label class="toggle-label">
             <input
@@ -144,6 +146,7 @@
           </label>
         </div>
         <p class="field-desc">{$t('settings.redactionPolicy.forceRedactBeforeLlmHelp')}</p>
+        {/if}
       </div>
 
       <div class="settings-section">

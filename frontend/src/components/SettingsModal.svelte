@@ -5,6 +5,7 @@
   import { page } from '$app/stores';
   import { user as userStore } from '$stores/auth';
   import { capabilities, isCapabilityEnabled } from '$stores/capabilities';
+  import { isLLMAvailable } from '$stores/llmStatus';
   import { isCloudEdition } from '$lib/edition';
   import { settingsModalStore, type SettingsSection } from '$stores/settingsModalStore';
   import { toastStore } from '$stores/toast';
@@ -297,19 +298,19 @@
       ]
     },
     {
-      title: $t('settings.sections.transcriptionAi'),
+      title: $isLLMAvailable ? $t('settings.sections.transcriptionAi') : $t('fileStatus.transcription'),
       items: [
-        { id: 'ai-prompts' as SettingsSection, label: $t('settings.aiPrompts.title'), icon: 'message', cap: 'prompts.user' },
+        { id: 'ai-prompts' as SettingsSection, label: $t('settings.aiPrompts.title'), icon: 'message', cap: 'prompts.user', needsLLM: true },
         { id: 'asr-provider' as SettingsSection, label: $t('settings.asrProvider.title'), icon: 'mic', cap: 'asr.user_providers' },
         ...(isAdmin ? [{ id: 'engine-settings' as SettingsSection, label: $t('settings.engineSettings.title'), icon: 'cpu', cap: 'engine.settings' }] : []),
         ...(isAdmin ? [{ id: 'redaction-policy' as SettingsSection, label: $t('settings.redactionPolicy.title'), icon: 'shield', cap: 'redaction.policy' }] : []),
-        { id: 'auto-labeling' as SettingsSection, label: $t('autoLabel.title'), icon: 'tag' },
+        { id: 'auto-labeling' as SettingsSection, label: $t('autoLabel.title'), icon: 'tag', needsLLM: true },
         { id: 'custom-vocabulary' as SettingsSection, label: $t('settings.customVocabulary.title'), icon: 'list', cap: 'vocab.user' },
         { id: 'content-redaction' as SettingsSection, label: $t('settings.contentRedaction.title'), icon: 'eye-off', cap: 'redaction.user' },
         // Admin platform tuning lives in this panel's Advanced tab, not a second row.
-        { id: 'chat' as SettingsSection, label: $t('chat.settings.title'), icon: 'message', cap: 'chat.rag' },
+        { id: 'chat' as SettingsSection, label: $t('chat.settings.title'), icon: 'message', cap: 'chat.rag', needsLLM: true },
         { id: 'llm-provider' as SettingsSection, label: $t('settings.llmProvider.title'), icon: 'brain', cap: 'llm.user_settings' },
-        { id: 'organization-context' as SettingsSection, label: isCloudEdition ? $t('settings.orgContext.cloudTitle') : $t('settings.orgContext.title'), icon: 'briefcase' },
+        { id: 'organization-context' as SettingsSection, label: isCloudEdition ? $t('settings.orgContext.cloudTitle') : $t('settings.orgContext.title'), icon: 'briefcase', needsLLM: true },
         { id: 'speaker-attributes' as SettingsSection, label: $t('settings.speakerAttributes.navTitle'), icon: 'user' },
         { id: 'transcription' as SettingsSection, label: $t('settings.transcription.title'), icon: 'waveform', cap: 'transcription.prefs' }
       ]
@@ -329,6 +330,9 @@
       ...section,
       items: section.items
         .filter((item) => capOn(capState, (item as { cap?: string }).cap))
+        // Prompts, chat and organisation context only feed an LLM: absent without one.
+        // The LLM provider entry stays, it is where one gets configured.
+        .filter((item) => $isLLMAvailable || !(item as { needsLLM?: boolean }).needsLLM)
         // A capability the deployment lacks is genuinely absent, so it stays
         // filtered out above. A privilege the *user* lacks is not: the entry
         // remains, flagged `locked`, and renders greyed out with a reason.

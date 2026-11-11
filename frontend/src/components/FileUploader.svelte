@@ -92,6 +92,8 @@
   // Drop-and-go: a chosen file is sent at once with the user's saved defaults.
   // The step wizard runs only when the user opts into options before choosing.
   let wizardMode = false;
+  // Stepper and Next/Back exist only for the wizard; the drop-and-go file panel needs neither.
+  $: showWizardChrome = !(activeTab === 'file' && currentStep?.id === 'media' && !wizardMode);
   // Cloud ASR ignores the local Whisper choice; without an LLM no summary runs.
   // The model step shows only what applies to this deployment, and vanishes when nothing does.
   let cloudAsrActive = false;
@@ -678,8 +680,8 @@
       const uploadId = uploadsStore.addFile(file, speakerParams, collectionIds, tagNames);
       savePreviousValues();
       resetAllState();
+      // The upload service toasts the outcome (sent, or already exists) once known.
       dispatch('uploadComplete', { uploadId, isFile: true });
-      toastStore.success($t('uploader.fileAddedToQueue'));
     } catch {
       toastStore.error($t('uploader.failedToAddFileToQueue'));
     }
@@ -784,7 +786,8 @@
 
 <!-- svelte-ignore a11y-no-static-element-interactions -->
 <div class="uploader-container" on:keydown={handleStepKeydown}>
-  <!-- Stepper Indicator (always visible so users see the full journey) -->
+  <!-- Stepper Indicator (visible whenever the wizard runs) -->
+  {#if showWizardChrome}
   <div class="step-indicator" role="navigation" aria-label={$t('uploader.stepsNav')}>
     {#each activeSteps as step, i}
       <button
@@ -814,6 +817,8 @@
       {/if}
     {/each}
   </div>
+
+  {/if}
 
   <!-- Step Content -->
   <div class="step-body" role="tabpanel">
@@ -988,6 +993,7 @@
   </div>
 
   <!-- Footer Navigation -->
+  {#if showWizardChrome}
   <div class="step-footer">
     <div class="nav-left">
       {#if !isFirstStep}
@@ -1047,6 +1053,7 @@
       {/if}
     </div>
   </div>
+  {/if}
 </div>
 
 <!-- Modals -->
@@ -1238,7 +1245,7 @@
 
   /* ── Messages ── */
   .wizard-toggle { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.75rem; font-size: 0.8125rem; color: var(--text-secondary); cursor: pointer; }
-  .wizard-toggle input { accent-color: var(--primary-color); }
+  .wizard-toggle input { width: auto; flex: none; margin: 0; accent-color: var(--primary-color); }
   .message { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.75rem; border-radius: 8px; margin-bottom: 0.75rem; font-size: 0.8125rem; }
   .message-icon { flex-shrink: 0; }
   .message-content { flex: 1; }

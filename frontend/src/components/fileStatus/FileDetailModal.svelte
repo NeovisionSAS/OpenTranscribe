@@ -2,12 +2,16 @@
   import { createEventDispatcher } from 'svelte';
   import { t } from '../../stores/locale';
   import { taskProgressPercent } from '$lib/utils/formatting';
+  import { taskTypeLabel, visibleTasks } from '$lib/utils/taskTypes';
+  import { isLLMAvailable } from '$stores/llmStatus';
 
   export let detailedStatus: any;
   export let selectedFile: any;
   export let retryingFiles: Set<any>;
 
   const dispatch = createEventDispatcher<{ close: void; retry: any }>();
+
+  $: tasks = detailedStatus ? visibleTasks<any>(detailedStatus.task_details ?? [], $isLLMAvailable) : [];
 
   function closeModal() {
     dispatch('close');
@@ -36,7 +40,8 @@
     if (!dateString) return $t('common.notAvailable');
 
     const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-US', {
+    // The page language, not a hard-coded English format.
+    return new Intl.DateTimeFormat(document.documentElement.lang || undefined, {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -164,14 +169,14 @@
           {/if}
         </div>
 
-        {#if detailedStatus.task_details.length > 0}
+        {#if tasks.length > 0}
           <div class="task-details">
             <h4>{$t('fileStatus.taskDetailsTitle')}</h4>
             <div class="task-metadata-grid">
-              {#each detailedStatus.task_details as task}
+              {#each tasks as task}
                 <div class="task-metadata-card">
                   <div class="task-card-header">
-                    <span class="task-type-label">{task.task_type}</span>
+                    <span class="task-type-label">{taskTypeLabel(task.task_type, $t)}</span>
                     <span class="status-badge {task.status_badge_class || 'status-unknown'}">{translateStatus(task.status)}</span>
                   </div>
                   <div class="task-metadata-items">

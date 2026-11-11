@@ -4,6 +4,7 @@
   import { getErrorStatus } from '$lib/utils/apiError';
   import { toastStore } from '$stores/toast';
   import { t } from '$stores/locale';
+  import { isLLMAvailable } from '$stores/llmStatus';
   import StatusChip from './StatusChip.svelte';
   import Spinner from '../ui/Spinner.svelte';
 
@@ -143,6 +144,8 @@
     if (!results) return [];
     return Object.entries(results)
       .filter(([key]) => key !== 'summary' && key !== 'error')
+      // Summary indexes exist only for LLM summaries: hidden without an LLM.
+      .filter(([key]) => $isLLMAvailable || !/summar/i.test(key))
       .map(([name, stats]: [string, any]) => ({
         name,
         total: stats.total_docs || 0,
@@ -213,7 +216,7 @@
             </div>
           {/if}
           <div class="overview-grid">
-            {#each indexOverview.indices as idx}
+            {#each indexOverview.indices.filter((idx) => $isLLMAvailable || !/summar/i.test(idx.name)) as idx}
               <div class="index-card" class:missing={!idx.exists}>
                 <div class="index-header">
                   <span class="index-label">{idx.label}</span>

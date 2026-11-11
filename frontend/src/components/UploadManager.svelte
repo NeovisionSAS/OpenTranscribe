@@ -106,7 +106,22 @@
   }
 
   // Cleanup
+  // Once every upload has finished cleanly, the pill has nothing left to say:
+  // clear it after a short read so it stops covering the page. Failed or
+  // cancelled uploads keep it up (they need the user), as does an open panel.
+  const SETTLED_CLEAR_MS = 4000;
+  let settledTimer: ReturnType<typeof setTimeout> | undefined;
+  $: settled =
+    $uploadStats.completed > 0 &&
+    $uploadStats.completed === $uploadStats.total &&
+    !$isExpanded;
+  $: {
+    clearTimeout(settledTimer);
+    settledTimer = settled ? setTimeout(() => uploadsStore.clearCompleted(), SETTLED_CLEAR_MS) : undefined;
+  }
+
   onDestroy(() => {
+    clearTimeout(settledTimer);
     document.removeEventListener('mousemove', handleDragMove);
     document.removeEventListener('mouseup', handleDragEnd);
   });

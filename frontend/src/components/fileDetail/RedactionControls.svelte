@@ -8,6 +8,8 @@
   import { createEventDispatcher } from 'svelte';
   import { t } from '$stores/locale';
   import Spinner from '$components/ui/Spinner.svelte';
+  import { onMount } from 'svelte';
+  import { getRedactionSettings } from '$lib/api/redactionSettings';
 
   export let showRedactionToggle = false;
   export let canViewOriginal = false;
@@ -15,6 +17,17 @@
   export let redactionToggleBusy = false;
 
   const dispatch = createEventDispatcher();
+
+  // The "not redacted yet / run redaction" offer only makes sense to a user who
+  // turned redaction on; otherwise it advertises a feature they never asked for.
+  let redactionEnabled = false;
+  onMount(async () => {
+    try {
+      redactionEnabled = (await getRedactionSettings()).enabled;
+    } catch {
+      redactionEnabled = false;
+    }
+  });
 </script>
 
 {#if showRedactionToggle}
@@ -53,7 +66,7 @@
       </button>
     </div>
   </div>
-{:else if canViewOriginal}
+{:else if canViewOriginal && redactionEnabled}
   <div class="redaction-footer">
     <span class="redaction-status">{$t('settings.contentRedaction.notRedacted')}</span>
     <button

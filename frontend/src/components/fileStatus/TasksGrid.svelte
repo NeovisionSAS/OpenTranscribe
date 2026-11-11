@@ -3,6 +3,7 @@
   import { t } from '../../stores/locale';
   import SearchPagination from '../search/SearchPagination.svelte';
   import { taskProgressPercent } from '$lib/utils/formatting';
+  import { taskTypeLabel } from '$lib/utils/taskTypes';
 
   export let tasks: any[] = [];
   export let filteredTasks: any[] = [];
@@ -14,24 +15,6 @@
   export let taskTotalPages = 0;
 
   const dispatch = createEventDispatcher<{ viewDetails: any; pageChange: number }>();
-
-  // Every task type gets its own label; an unknown type shows its raw name
-  // rather than borrowing another type's label.
-  const TASK_TYPE_LABEL_KEYS: Record<string, string> = {
-    transcription: 'fileStatus.transcription',
-    search_indexing: 'search.settingsTitle',
-    summarization: 'fileStatus.summarization',
-    analytics: 'reprocess.stageAnalytics',
-    topic_extraction: 'reprocess.stageTopicExtraction',
-    speaker_identification: 'reprocess.stageSpeakerLLM',
-    speaker_embedding: 'fileStatus.speakerProcessing',
-    speaker_attribute_detection: 'fileStatus.speakerProcessing',
-    speaker_clustering: 'fileStatus.speakerProcessing',
-  };
-  function taskTypeLabel(taskType: string): string {
-    const key = TASK_TYPE_LABEL_KEYS[taskType];
-    return key ? $t(key) : taskType;
-  }
 </script>
 
 {#if tasksLoading && tasks.length === 0}
@@ -79,7 +62,7 @@
                     <line x1="8" y1="18" x2="21" y2="18"></line>
                     <line x1="3" y1="6" x2="3.01" y2="6"></line>
                   </svg>
-                  {taskTypeLabel(task.task_type)}
+                  {taskTypeLabel(task.task_type, $t)}
                 {/if}
               </div>
             </td>

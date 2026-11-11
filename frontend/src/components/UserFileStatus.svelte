@@ -3,20 +3,14 @@
   import { lockScroll, unlockScroll } from '$lib/scrollLock';
   import axiosInstance from '../lib/axios';
   import { apiCache, cacheKey, CacheTTL } from '$lib/apiCache';
-  import { user } from '../stores/auth';
   import { websocketStore } from '../stores/websocket';
   import { toastStore } from '../stores/toast';
   import { t } from '../stores/locale';
   import { getErrorMessage } from '$lib/utils/apiError';
-  import { getFlowerUrl } from '$lib/utils/url';
   import SkeletonLoader from './ui/SkeletonLoader.svelte';
   import TaskFilterPanel from '$components/fileStatus/TaskFilterPanel.svelte';
   import TasksGrid from '$components/fileStatus/TasksGrid.svelte';
   import FileDetailModal from '$components/fileStatus/FileDetailModal.svelte';
-
-  // Flower exposes task arguments (file/user IDs) and worker topology, so the
-  // entry is admin-only. Cosmetic only — nginx auth_request is the real gate.
-  $: isAdmin = $user?.role === 'admin' || $user?.role === 'super_admin';
 
   // Component state
   let loading = false;
@@ -219,14 +213,6 @@
     }
   }
 
-  function openFlowerDashboard() {
-    // Dynamically construct Flower URL from current location
-    const url = getFlowerUrl();
-    // 'noopener' — unlike <a target="_blank">, window.open() gets no implicit
-    // noopener, so the new tab would keep a live window.opener handle back here.
-    window.open(url, '_blank', 'noopener');
-  }
-
   async function fetchDetailedStatus(fileId: any) {
     try {
       const response = await axiosInstance.get(`/my-files/${fileId}/status`);
@@ -376,18 +362,6 @@
         </svg>
       </span>
 
-      {#if isAdmin}
-        <button
-          class="flower-btn"
-          on:click={openFlowerDashboard}
-          title={$t('fileStatus.flowerTooltip')}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-          </svg>
-          {$t('nav.flowerDashboard')}
-        </button>
-      {/if}
 
       {#if fileStatus?.has_problems}
         <button
@@ -517,7 +491,7 @@
     align-items: center;
   }
 
-  .recovery-btn, .flower-btn {
+  .recovery-btn {
     padding: 0.6rem 1.2rem;
     background: var(--primary-color);
     color: white;
@@ -533,12 +507,6 @@
     box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
   }
 
-  .flower-btn {
-    background: var(--surface-color);
-    color: var(--text-color);
-    border: 1px solid var(--border-color);
-  }
-
   .recovery-btn:hover {
     background: #2563eb;
     transform: scale(1.02);
@@ -547,11 +515,6 @@
 
   .recovery-btn:active {
     transform: scale(1);
-  }
-
-  .flower-btn:hover {
-    background: var(--button-hover);
-    border-color: var(--border-hover);
   }
 
   .recovery-btn:disabled {

@@ -24,6 +24,15 @@ import { get } from 'svelte/store';
 
 vi.mock('$lib/edition', () => ({ isCloudEdition: false }));
 
+// LLM availability gates LLM-only status messages; default: an LLM is configured.
+const llmAvailable = vi.hoisted(() => ({ value: true }));
+vi.mock('$stores/llmStatus', async () => {
+  const { readable } = await import('svelte/store');
+  return {
+    isLLMAvailable: { subscribe: (run: (v: boolean) => void) => readable(llmAvailable.value).subscribe(run) },
+  };
+});
+
 vi.mock('$lib/axios', () => ({
   default: {
     // `recoverActiveProgress()` runs on every open; give it an empty task list.
@@ -250,6 +259,20 @@ describe('websocket message dispatch', () => {
     expect(ns[0].progress?.percentage).toBe(60);
     expect(ns[0].status).toBe('processing');
   });
+
+  it.each(['summarization_status', 'topic_extraction_status'])(
+    '%s is dropped when no LLM is configured',
+    (type) => {
+      llmAvailable.value = false;
+      try {
+        const socket = openSocket();
+        socket.deliver({ type, data: { file_id: 'f1', status: 'failed', progress: 0 } });
+        expect(notifications().filter((n) => n.progressId === `${type}_f1`)).toHaveLength(0);
+      } finally {
+        llmAvailable.value = true;
+      }
+    }
+  );
 
   it('keeps a progressive notification non-dismissible until it finishes', () => {
     const socket = openSocket();

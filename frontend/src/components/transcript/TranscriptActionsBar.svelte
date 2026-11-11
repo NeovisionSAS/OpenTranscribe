@@ -170,8 +170,7 @@
 <style>
   .transcript-actions {
     display: flex;
-    gap: 12px;
-    margin-bottom: 12px;
+    gap: 8px;
     flex-wrap: wrap;
   }
 
@@ -185,8 +184,8 @@
   .action-button {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px 16px;
+    gap: 6px;
+    padding: 8px 12px;
     background: var(--surface-color);
     border: 1px solid var(--border-color);
     border-radius: 6px;

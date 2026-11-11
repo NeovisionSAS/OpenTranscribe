@@ -12,6 +12,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
   import { goto } from '$app/navigation';
+  import { get } from 'svelte/store';
   import { t } from '$stores/locale';
   import { capabilities, isCapabilityEnabled } from '$stores/capabilities';
   import { llmStatusStore } from '$stores/llmStatus';
@@ -117,6 +118,11 @@
   }
 
   onMount(() => {
+    // Chat needs an LLM; without one the page has nothing to offer, so send the
+    // user back to the gallery (the nav link is hidden for the same reason).
+    llmStatusStore.initialize().then(() => {
+      if (!get(llmStatusStore).available) void goto('/', { replaceState: true });
+    });
     chatStore.loadConversations(true);
     loadProjects();
     // Read BEFORE enabling persistence, or mounting writes the default back

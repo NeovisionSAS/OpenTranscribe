@@ -181,6 +181,9 @@ describe('dynamic extraction step', () => {
   it('inserts an extraction step for a video over the configured threshold', async () => {
     const { container } = render(FileUploader);
     await waitFor(() => expect(container.querySelector('input[type="file"]')).not.toBeNull());
+    // The stepper exists only once the user asks for options.
+    expect(container.querySelectorAll('.step-item')).toHaveLength(0);
+    await fireEvent.click(container.querySelector('.wizard-toggle input') as HTMLElement);
     expect(container.querySelectorAll('.step-item')).toHaveLength(6);
 
     await selectFile(

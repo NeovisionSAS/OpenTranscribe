@@ -419,24 +419,25 @@
       on:navigateToMatch={handleNavigateToMatch}
       on:loadMore
     />
+    <!-- Rename speakers / export share the search row, so the transcript starts
+         one row higher and every action is reachable without scrolling. -->
+    {#if file.transcript_segments && file.transcript_segments.length > 0}
+      <TranscriptActionsBar
+        {file}
+        {diarizationDisabled}
+        {isEditingSpeakers}
+        {isDownloading}
+        {currentDownload}
+        {isVideoFile}
+        {canEmbedSubtitles}
+        on:exportTranscript={handleExportFromBar}
+        on:toggleSpeakerEditor={toggleSpeakerEditor}
+        on:download={handleDownloadFromBar}
+      />
+    {/if}
   </div>
 
   {#if file.transcript_segments && file.transcript_segments.length > 0}
-    <!-- Actions (rename speakers, export) sit above the transcript so they are
-         reachable without scrolling past its fixed-height list. -->
-    <TranscriptActionsBar
-      {file}
-      {diarizationDisabled}
-      {isEditingSpeakers}
-      {isDownloading}
-      {currentDownload}
-      {isVideoFile}
-      {canEmbedSubtitles}
-      on:exportTranscript={handleExportFromBar}
-      on:toggleSpeakerEditor={toggleSpeakerEditor}
-      on:download={handleDownloadFromBar}
-    />
-
     {#if isEditingSpeakers && !diarizationDisabled}
       <SpeakerEditorPanel
         {file}
@@ -497,7 +498,8 @@
 
   .transcript-header {
     display: flex;
-    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
     align-items: center;
     margin-bottom: 6px;
     min-height: 32px;

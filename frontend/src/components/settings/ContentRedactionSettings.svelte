@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { t } from '$stores/locale';
+  import { isLLMAvailable } from '$stores/llmStatus';
   import { settingsModalStore } from '$stores/settingsModalStore';
   import { toastStore } from '$stores/toast';
   import {
@@ -193,7 +194,7 @@
           </p>
         {/if}
         <div class="chip-grid">
-          {#each defaults?.available_detectors ?? [] as det}
+          {#each (defaults?.available_detectors ?? []).filter((det) => $isLLMAvailable || det !== 'llm') as det}
             <label class="chip" class:active={settings.detectors.includes(det)}>
               <input
                 type="checkbox"
@@ -311,6 +312,7 @@
       <!-- Privacy -->
       <div class="settings-section">
         <h3 class="section-title">{$t('settings.contentRedaction.privacy')}</h3>
+        {#if $isLLMAvailable}
         <div class="setting-row" class:disabled-toggle={llmLocked}>
           <label class="toggle-label">
             <input
@@ -327,6 +329,7 @@
           </label>
         </div>
         <p class="field-desc">{$t('settings.contentRedaction.redactBeforeLlmHelp')}</p>
+        {/if}
 
         <div class="setting-row" class:disabled-toggle={exportLocked} style="margin-top: 0.75rem;">
           <label class="toggle-label">

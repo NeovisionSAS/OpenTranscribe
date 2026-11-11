@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { lockScroll, unlockScroll } from '$lib/scrollLock';
   import { derived } from 'svelte/store';
-  import { goto } from '$app/navigation';
+  import { goto, afterNavigate } from '$app/navigation';
   import { token } from '../stores/auth';
   import { websocketStore } from '../stores/websocket';
   import { showNotificationsPanel } from '../stores/notificationsPanel';
@@ -40,6 +40,8 @@
     showNotificationsPanel.set(false);
     // Don't automatically mark as read - let user do it manually
   }
+
+  afterNavigate(() => closePanel());
 
   /**
    * Close panel when clicking outside
@@ -223,6 +225,9 @@
     if (_panelWasOpen) unlockScroll();
   });
 </script>
+
+<!-- Escape and any route change close the panel, as every other overlay here does. -->
+<svelte:window on:keydown={(e) => showPanel && e.key === 'Escape' && closePanel()} />
 
 {#if showPanel}
   <!-- Backdrop for mobile/tablet -->

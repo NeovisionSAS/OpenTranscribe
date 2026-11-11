@@ -25,6 +25,7 @@ vi.mock('$stores/locale', async () => {
 });
 
 import TasksGrid from './TasksGrid.svelte';
+import enCopy from '$lib/i18n/locales/en.json';
 
 interface TaskRow {
   id: number;
@@ -114,12 +115,21 @@ describe('TasksGrid — progress rendering', () => {
     expect(container.textContent).toContain('Summarization');
   });
 
-  it('falls back to the summarization label for an unrecognised task_type', () => {
-    // Pinning current behaviour: the {:else} branch is a catch-all, so a NEW
-    // backend task type is silently mislabelled "Summarization". Documented here
-    // so the next task type added is a conscious change to this component.
+  it.each([
+    ['analytics', 'reprocess.stageAnalytics'],
+    ['speaker_clustering', 'fileStatus.speakerProcessing'],
+    ['topic_extraction', 'reprocess.stageTopicExtraction'],
+  ])('labels %s by its own type, never as a summary', (taskType, expected) => {
+    const { container } = renderGrid([task({ task_type: taskType })]);
+
+    expect(container.textContent).toContain((enCopy as Record<string, string>)[expected]);
+    expect(container.textContent).not.toContain('Summarization');
+  });
+
+  it('shows an unrecognised task_type by its raw name', () => {
     const { container } = renderGrid([task({ task_type: 'redaction' })]);
 
-    expect(container.textContent).toContain('Summarization');
+    expect(container.textContent).toContain('redaction');
+    expect(container.textContent).not.toContain('Summarization');
   });
 });

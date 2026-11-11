@@ -13,6 +13,8 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import { t } from '$stores/locale';
+  import { LLM_TASK_TYPES } from '$lib/utils/taskTypes';
+  import { isLLMAvailable } from '$stores/llmStatus';
   import Spinner from '$components/ui/Spinner.svelte';
 
   export let stats: any;
@@ -22,6 +24,11 @@
   export let searchHealthStatus: SearchHealthStatus | null = null;
 
   const dispatch = createEventDispatcher<{ refresh: void; openDetails: string }>();
+
+  // LLM-only stages are hidden without an LLM, as on every other task list.
+  $: recentTasks = (stats?.tasks?.recent ?? []).filter(
+    (task: { type: string }) => $isLLMAvailable || !LLM_TASK_TYPES.has(task.type)
+  );
 
   let currentGpuIndex = 0;
   $: activeGpu = stats.system?.gpus?.[currentGpuIndex] ?? stats.system?.gpus?.[0];
@@ -385,7 +392,7 @@
     </div>
 
     <!-- Recent Tasks Table -->
-    {#if stats.tasks?.recent && stats.tasks.recent.length > 0}
+    {#if recentTasks.length > 0}
       <div class="recent-tasks" class:stats-refreshing={statsRefreshing}>
         <h4>{$t('settings.statistics.recentTasks')}</h4>
         <div class="table-container">
@@ -400,7 +407,7 @@
               </tr>
             </thead>
             <tbody>
-              {#each stats.tasks.recent as task}
+              {#each recentTasks as task}
                 <tr>
                   <td>{task.id.substring(0, 8)}...</td>
                   <td>{task.type}</td>

@@ -59,7 +59,8 @@
       !(minSpeakers !== null && maxSpeakers !== null && minSpeakers > maxSpeakers));
 
   // Step navigation — show settings step for speaker config OR model selection
-  $: needsSettingsStep = showSpeakerSettings || selectedStages.has('transcription');
+  // The settings step holds the Whisper model (local ASR only) and speaker counts.
+  $: needsSettingsStep = showSpeakerSettings || (selectedStages.has('transcription') && !isCloudASR);
   $: stepLabels = needsSettingsStep
     ? ['reprocess.stepStages', 'reprocess.stepSettings', 'reprocess.stepReview']
     : ['reprocess.stepStages', 'reprocess.stepReview'];
