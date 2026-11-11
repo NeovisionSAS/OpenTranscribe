@@ -798,8 +798,9 @@ DIAR_SIDECAR_MAX_RETRIES = 4  # attempts
 # Language Settings (Multilingual Support)
 # =============================================================================
 
-# Default language settings
-DEFAULT_SOURCE_LANGUAGE = "auto"
+# Default language settings. DEFAULT_SOURCE_LANGUAGE seeds every user who has not
+# picked a language yet (e.g. "fr" for a single-language deployment).
+DEFAULT_SOURCE_LANGUAGE = _os.environ.get("DEFAULT_SOURCE_LANGUAGE", "auto").strip() or "auto"
 DEFAULT_TRANSLATE_TO_ENGLISH = False
 DEFAULT_LLM_OUTPUT_LANGUAGE = "en"
 
@@ -1092,8 +1093,10 @@ TAG_SOURCE_BULK_GROUP = "bulk_group"
 # WebSocket notification types for auto-labeling
 NOTIFICATION_TYPE_AUTO_LABEL_STATUS = "auto_label_status"
 
-# AI Summary settings defaults
-DEFAULT_AI_SUMMARY_ENABLED = True
+# AI Summary settings defaults: system and per-user fallback when no row is stored.
+DEFAULT_AI_SUMMARY_ENABLED = (
+    _os.environ.get("DEFAULT_AI_SUMMARY_ENABLED", "true").strip().lower() != "false"
+)
 
 # =============================================================================
 # Content Redaction Settings
