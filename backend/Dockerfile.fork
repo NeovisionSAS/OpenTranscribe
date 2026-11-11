@@ -1,0 +1,5 @@
+# This checkout's backend code on top of the published lite (cloud-ASR, CPU-only)
+# release image: only app/ differs, so the build takes seconds and needs no GPU stack.
+ARG OT_IMAGE_TAG
+FROM davidamacey/opentranscribe-backend-lite:${OT_IMAGE_TAG}
+COPY --chown=appuser:appuser app /app/app

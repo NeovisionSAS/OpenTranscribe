@@ -1,0 +1,60 @@
+# Transcript-only deployment built from THIS checkout, no GPU.
+#
+# Layered on docker-compose.yml + docker-compose.prod.yml + docker-compose.lite.yml
+# (install-windows.ps1 writes that chain into .env as COMPOSE_FILE):
+# - backend and frontend images are built from this checkout on top of the published
+#   release images (backend/Dockerfile.fork, frontend/Dockerfile.fork), so local fixes
+#   ship without a registry;
+# - every backend-image service runs that one image; nothing pulls the full GPU image;
+# - services a transcript-only install never uses are scaled to 0;
+# - web UI and API listen on this PC only (127.0.0.1).
+# OT_IMAGE_TAG (the release the images extend) comes from .env.
+
+x-fork-backend: &fork-backend
+  image: opentranscribe-backend-fork:${OT_IMAGE_TAG:?set OT_IMAGE_TAG in .env}
+  build: !reset null
+  pull_policy: never
+
+services:
+  backend:
+    image: opentranscribe-backend-fork:${OT_IMAGE_TAG:?set OT_IMAGE_TAG in .env}
+    build: !override
+      context: ./backend
+      dockerfile: Dockerfile.fork
+      args:
+        OT_IMAGE_TAG: ${OT_IMAGE_TAG}
+    pull_policy: build
+
+  celery-cloud-asr-worker: *fork-backend
+  celery-cpu-worker: *fork-backend
+  celery-nlp-worker: *fork-backend
+  celery-download-worker: *fork-backend
+  celery-embedding-worker: *fork-backend
+  celery-beat: *fork-backend
+
+  # Unused by a transcript-only install: PII redaction (~5 GB RAM), local GPU
+  # transcription, task monitor, docs site.
+  celery-redaction:
+    <<: *fork-backend
+    deploy: {replicas: 0}
+  celery-worker:
+    <<: *fork-backend
+    deploy: {replicas: 0}
+  flower:
+    <<: *fork-backend
+    deploy: {replicas: 0}
+  docs:
+    build: !reset null
+    pull_policy: missing
+    deploy: {replicas: 0}
+
+  frontend:
+    image: opentranscribe-frontend-fork:${OT_IMAGE_TAG:?set OT_IMAGE_TAG in .env}
+    build: !override
+      context: ./frontend
+      dockerfile: Dockerfile.fork
+      args:
+        OT_IMAGE_TAG: ${OT_IMAGE_TAG}
+    pull_policy: build
+    ports: !override
+      - "127.0.0.1:${FRONTEND_PORT:-5173}:8080"

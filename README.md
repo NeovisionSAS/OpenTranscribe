@@ -1,3 +1,5 @@
+> **Installation sur Windows (transcription + locuteurs via pyannote.ai) : voir [INSTALL.md](INSTALL.md).**
+
 <div align="center">
   <img src="assets/logo-banner.png" alt="OpenTranscribe Logo" width="400">
 

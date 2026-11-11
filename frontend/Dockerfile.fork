@@ -1,0 +1,20 @@
+# This checkout's frontend built on top of the published release image. Same result as
+# Dockerfile.prod without its emscripten stage: the self-compiled ffmpeg.wasm core is
+# taken from the release image instead of being rebuilt.
+ARG OT_IMAGE_TAG
+FROM davidamacey/opentranscribe-frontend:${OT_IMAGE_TAG} AS release
+
+FROM node:26-alpine AS build
+WORKDIR /app
+RUN apk add --no-cache python3 make g++ git
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+COPY --from=release /usr/share/nginx/html/ffmpeg static/ffmpeg/
+RUN mkdir -p static/fonts && chmod -R 755 static/fonts static/ffmpeg && npm run build
+
+FROM release
+USER root
+RUN rm -rf /usr/share/nginx/html/*
+COPY --from=build --chown=nginx:nginx /app/dist /usr/share/nginx/html
+USER nginx
