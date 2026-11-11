@@ -25,6 +25,14 @@ $Settings = [ordered]@{
     'PYANNOTE_MODEL'             = 'whisper-large-v3-turbo'
     'DEFAULT_SOURCE_LANGUAGE'    = 'fr'
     'DEFAULT_AI_SUMMARY_ENABLED' = 'false'
+    # Sized for one person on a 16 GB PC (template defaults target a shared server).
+    # 1 GB heap is the size docker-compose.yml documents as verified for the default
+    # search model.
+    'OPENSEARCH_JAVA_OPTS'       = '"-Xms1g -Xmx1g"'
+    'CLOUD_ASR_CONCURRENCY'      = '2'
+    'CPU_WORKER_CONCURRENCY'     = '2'
+    'NLP_CONCURRENCY'            = '1'
+    'DOWNLOAD_CONCURRENCY'       = '1'
 }
 
 function Write-Step([string]$Text) { Write-Host "`n==> $Text" -ForegroundColor Cyan }
