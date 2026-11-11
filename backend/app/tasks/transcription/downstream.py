@@ -7,6 +7,7 @@ import logging
 
 from app.db.session_utils import session_scope
 from app.models.media import MediaFile
+from app.utils.llm_gate import llm_configured_for_file
 
 logger = logging.getLogger(__name__)
 
@@ -137,7 +138,11 @@ def trigger_automatic_summarization(
             _dispatch_automatic_summary(file_id, file_uuid, collection_prompt_uuid)
 
         # Topic extraction
-        if tasks_to_run is None or "topic_extraction" in tasks_to_run:
+        if (tasks_to_run is None or "topic_extraction" in tasks_to_run) and not (
+            llm_configured_for_file(file_uuid)
+        ):
+            logger.info(f"No LLM configured, topic extraction not dispatched for file {file_id}")
+        elif tasks_to_run is None or "topic_extraction" in tasks_to_run:
             from app.tasks.topic_extraction import extract_topics_task
 
             topic_task = extract_topics_task.delay(file_uuid=file_uuid, force_regenerate=False)

@@ -23,6 +23,7 @@ from app.db.session_utils import session_scope
 from app.services.audio_segment_utils import extract_audio_segment_np
 from app.services.audio_segment_utils import merge_adjacent_segments
 from app.services.audio_segment_utils import select_top_segments
+from app.utils.llm_gate import llm_configured_for_file
 from app.utils.websocket_notify import send_ws_event_for_file
 
 logger = logging.getLogger(__name__)
@@ -127,6 +128,9 @@ def _dispatch_llm_speaker_identification(file_uuid: str) -> None:
     Called at the end of detect_speaker_attributes_task (or its early-exit paths)
     so that the LLM always runs after gender attributes have been written to the DB.
     """
+    if not llm_configured_for_file(file_uuid):
+        logger.info(f"No LLM configured, LLM speaker identification not dispatched for {file_uuid}")
+        return
     try:
         from app.tasks.speaker_tasks import identify_speakers_llm_task
 

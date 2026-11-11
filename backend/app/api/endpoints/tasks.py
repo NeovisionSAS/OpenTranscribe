@@ -39,6 +39,8 @@ from app.services.takedown_service import exclude_quarantined
 from app.services.task_detection_service import task_detection_service
 from app.services.task_filtering_service import TaskFilteringService
 from app.services.task_recovery_service import task_recovery_service
+from app.utils.llm_gate import LLM_TASK_TYPES
+from app.utils.llm_gate import llm_configured_for_user
 from app.utils.task_utils import TASK_STATUS_COMPLETED
 from app.utils.task_utils import TASK_STATUS_FAILED
 from app.utils.task_utils import TASK_STATUS_IN_PROGRESS
@@ -112,6 +114,10 @@ def _latest_task_by_file(
 
     Joins through ``MediaFile`` rather than passing an ``IN`` list of file ids so
     the query cost does not scale with the caller's library size.
+
+    LLM stages (``LLM_TASK_TYPES``) are skipped for files whose owner has no LLM
+    configured: those rows are leftovers or no-ops, and letting one win would
+    report the file by work that cannot run instead of by its transcription.
     """
     query = (
         db.query(
@@ -125,6 +131,7 @@ def _latest_task_by_file(
             TaskModel.updated_at,
             TaskModel.completed_at,
             MediaFile.active_task_id,
+            MediaFile.user_id,
         )
         .join(MediaFile, TaskModel.media_file_id == MediaFile.id)
         .order_by(TaskModel.media_file_id, TaskModel.created_at)
@@ -137,8 +144,14 @@ def _latest_task_by_file(
     if file_id is not None:
         query = query.filter(TaskModel.media_file_id == file_id)
 
+    llm_by_owner: dict[int, bool] = {}
     best: dict[int, Any] = {}
     for row in query.all():
+        if row.task_type in LLM_TASK_TYPES:
+            if row.user_id not in llm_by_owner:
+                llm_by_owner[row.user_id] = llm_configured_for_user(db, row.user_id)
+            if not llm_by_owner[row.user_id]:
+                continue
         incumbent = best.get(row.media_file_id)
         if incumbent is None or row.id == row.active_task_id:
             best[row.media_file_id] = row

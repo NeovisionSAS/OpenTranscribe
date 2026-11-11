@@ -36,6 +36,7 @@ from app.services.redaction.llm_guard import RedactionNotReadyError
 from app.services.redaction.llm_guard import defer_for_redaction
 from app.services.redaction.llm_guard import resolve_llm_masking
 from app.services.topic_extraction_service import TopicExtractionService
+from app.utils.task_utils import TASK_STATUS_SKIPPED
 
 logger = logging.getLogger(__name__)
 
@@ -185,7 +186,7 @@ def _mark_task_status(
                 status,
                 progress=progress,
                 error_message=error_message,
-                completed=status in ("completed", "failed"),
+                completed=status in ("completed", "failed", TASK_STATUS_SKIPPED),
             )
     except Exception as status_err:  # noqa: BLE001
         logger.debug(f"Could not record topic-extraction task status: {status_err}")
@@ -271,6 +272,7 @@ def extract_topics_task(self, file_uuid: str, force_regenerate: bool = False):
 
         if not extraction_service:
             logger.info(f"LLM not configured for user {user_id}, skipping topic extraction")
+            _mark_task_status(task_id, TASK_STATUS_SKIPPED, progress=1.0)
             return {
                 "status": "skipped",
                 "reason": "LLM not configured",

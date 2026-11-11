@@ -18,6 +18,8 @@ from app.core.task_config import task_recovery_config
 from app.models.media import FileStatus
 from app.models.media import MediaFile
 from app.models.media import Task
+from app.utils.llm_gate import LLM_TASK_TYPES
+from app.utils.llm_gate import llm_configured_for_user
 from app.utils.task_utils import update_media_file_from_task_status
 
 logger = logging.getLogger(__name__)
@@ -751,7 +753,7 @@ class TaskDetectionService:
         unique_user_ids = {c.user_id for c in candidates}
         llm_configured_by_user: dict[int, bool] = {}
         for uid in unique_user_ids:
-            llm_configured_by_user[uid] = self._check_llm_configured_for_user(db, uid)
+            llm_configured_by_user[uid] = llm_configured_for_user(db, uid)
 
         # Batch-fetch existence: files with topics
         files_with_topics = set(
@@ -910,43 +912,6 @@ class TaskDetectionService:
             )
 
         return results
-
-    @staticmethod
-    def _check_llm_configured_for_user(db: Session, user_id: int) -> bool:
-        """
-        Check whether a user has LLM configured (DB-only, no HTTP).
-
-        Checks the UserSetting for an active_llm_config_id, validates
-        the corresponding UserLLMSettings record exists, and falls back
-        to the system-level LLM_PROVIDER env var.
-        """
-        from app.models.prompt import UserSetting
-        from app.models.user_llm_settings import UserLLMSettings
-
-        # Check user-level config
-        active_config_setting = (
-            db.query(UserSetting.setting_value)
-            .filter(
-                UserSetting.user_id == user_id,
-                UserSetting.setting_key == "active_llm_config_id",
-            )
-            .first()
-        )
-        if active_config_setting and active_config_setting[0]:
-            try:
-                config_id = int(active_config_setting[0])
-                exists = (
-                    db.query(UserLLMSettings.id).filter(UserLLMSettings.id == config_id).first()
-                )
-                if exists:
-                    return True
-            except (ValueError, TypeError):
-                pass
-
-        # Fall back to system-level env var
-        from app.core.config import settings
-
-        return bool(settings.LLM_PROVIDER)
 
     def _is_task_duration_exceeded(self, task: Task, now: datetime) -> bool:
         """Check if a task has exceeded its maximum allowed duration."""
@@ -1112,7 +1077,7 @@ class TaskDetectionService:
             db.query(Task)
             .filter(
                 Task.status == "in_progress",
-                Task.task_type.in_(["speaker_identification", "summarization", "topic_extraction"]),
+                Task.task_type.in_(LLM_TASK_TYPES),
                 Task.created_at < stuck_threshold,
             )
             .all()
@@ -1144,9 +1109,7 @@ class TaskDetectionService:
             .filter(
                 Task.status == "failed",
                 Task.error_message == "Task recovered after being stuck in processing",
-                Task.task_type.in_(
-                    ["speaker_identification", "summarization", "topic_extraction", "transcription"]
-                ),
+                Task.task_type.in_(LLM_TASK_TYPES | {"transcription"}),
                 Task.created_at > recent_cutoff,
             )
             .filter(
