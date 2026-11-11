@@ -1,5 +1,6 @@
 <script lang="ts">
   import { t } from '../../stores/locale';
+  import { isLLMAvailable } from '$stores/llmStatus';
   import DateRangePicker from '$components/ui/DateRangePicker.svelte';
   import { format } from 'date-fns';
 
@@ -43,7 +44,9 @@
     <select bind:value={taskTypeFilter} class="compact-filter-select">
       <option value="all">{$t('fileStatus.allTypes')}</option>
       <option value="transcription">{$t('fileStatus.transcription')}</option>
-      <option value="summarization">{$t('fileStatus.summarization')}</option>
+      {#if $isLLMAvailable}
+        <option value="summarization">{$t('fileStatus.summarization')}</option>
+      {/if}
       <option value="search_indexing">{$t('search.settingsTitle')}</option>
     </select>
 

@@ -999,6 +999,39 @@
   }
 
   // File upload completed handler
+  // Drop-anywhere upload: files dropped on the gallery go straight to the
+  // uploader's file panel, which sends them with the saved defaults.
+  let pageDragDepth = 0;
+  $: pageDragActive = pageDragDepth > 0;
+  function carriesFiles(e: DragEvent): boolean {
+    return !showUploadModal && !!e.dataTransfer?.types.includes('Files');
+  }
+  function handlePageDragEnter(e: DragEvent) {
+    if (!carriesFiles(e)) return;
+    e.preventDefault();
+    pageDragDepth += 1;
+  }
+  function handlePageDragOver(e: DragEvent) {
+    if (!carriesFiles(e)) return;
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+  }
+  function handlePageDragLeave(e: DragEvent) {
+    if (!carriesFiles(e)) return;
+    pageDragDepth = Math.max(0, pageDragDepth - 1);
+  }
+  function handlePageDrop(e: DragEvent) {
+    if (!carriesFiles(e)) return;
+    e.preventDefault();
+    pageDragDepth = 0;
+    const files = Array.from(e.dataTransfer?.files ?? []);
+    if (files.length === 0) return;
+    showUploadModal = true;
+    tick().then(() => {
+      window.dispatchEvent(new CustomEvent('dropMediaFiles', { detail: { files } }));
+    });
+  }
+
   function handleUploadComplete(event: CustomEvent) {
     // For URL uploads, don't immediately refresh - let WebSocket notifications handle it
     // This prevents showing loading state while YouTube/URL processing happens in background
@@ -1438,6 +1471,19 @@
 </script>
 
 <!-- Main container with fixed height -->
+<svelte:window
+  on:dragenter={handlePageDragEnter}
+  on:dragover={handlePageDragOver}
+  on:dragleave={handlePageDragLeave}
+  on:drop={handlePageDrop}
+/>
+
+{#if pageDragActive}
+  <div class="page-drop-overlay" aria-hidden="true">
+    <div class="page-drop-message">{$t('gallery.dropToTranscribe')}</div>
+  </div>
+{/if}
+
 <div class="media-library-container">
   {#if activeTab === 'gallery'}
     <div class="gallery-tab-wrapper">
@@ -1690,5 +1736,26 @@
     border-color: var(--border-color) !important;
     transform: scale(1.02) !important;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1) !important;
+  }
+
+  .page-drop-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--primary-color, #3b82f6) 12%, transparent);
+    border: 3px dashed var(--primary-color, #3b82f6);
+    pointer-events: none;
+  }
+  .page-drop-message {
+    padding: 1rem 1.5rem;
+    border-radius: 10px;
+    background: var(--surface-color, #fff);
+    color: var(--text-primary);
+    font-size: 1.125rem;
+    font-weight: 600;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   }
 </style>

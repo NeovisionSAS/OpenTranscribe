@@ -171,7 +171,7 @@
   .transcript-actions {
     display: flex;
     gap: 12px;
-    margin-top: 16px;
+    margin-bottom: 12px;
     flex-wrap: wrap;
   }
 

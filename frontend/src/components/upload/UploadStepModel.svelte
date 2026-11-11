@@ -5,6 +5,8 @@
   export let selectedWhisperModel: string | null = null;
   export let adminDefaultModel = 'large-v3-turbo';
   export let skipSummary = false;
+  export let showModelChoice = true;
+  export let showSummaryChoice = true;
 
   const dispatch = createEventDispatcher<{
     change: { selectedWhisperModel: string | null; skipSummary: boolean };
@@ -16,6 +18,7 @@
 </script>
 
 <div class="step-model">
+  {#if showModelChoice}
   <p class="step-hint">{$t('uploader.modelHint')}</p>
 
   <div class="field">
@@ -35,7 +38,9 @@
       <p class="model-note">{$t('uploader.fastProcessingHint')}</p>
     {/if}
   </div>
+  {/if}
 
+  {#if showSummaryChoice}
   <!-- AI Summary -->
   <div class="section">
     <h4 class="section-title">{$t('upload.aiSummary')}</h4>
@@ -50,6 +55,7 @@
       </label>
     </label>
   </div>
+  {/if}
 </div>
 
 <style>

@@ -479,7 +479,8 @@
                   {/each}
                 </div>
 
-                <!-- AI Features -->
+                <!-- AI Features: every stage needs an LLM, so the group exists only with one. -->
+                {#if $isLLMAvailable}
                 <div class="stage-group">
                   <div class="stage-group-header">
                     <span class="stage-group-label">{$t('reprocess.aiFeatures')}</span>
@@ -517,11 +518,12 @@
                     </label>
                   {/each}
                 </div>
+                {/if}
 
               <!-- Step 2: Settings (only when needsSettingsStep && currentStep === 2) -->
               {:else if isOnSettingsStep()}
-                <!-- Model Selection -->
-                {#if selectedStages.has('transcription')}
+                <!-- Model Selection: local Whisper only; a cloud ASR provider ignores it. -->
+                {#if selectedStages.has('transcription') && !isCloudASR}
                   <div class="setting-field" style="margin-bottom: 1rem;">
                     <label for="reprocess-model-select">
                       {$t('uploader.whisperModel')}

@@ -13,6 +13,8 @@
   export let skipSummary = false;
   export let selectedWhisperModel: string | null = null;
   export let adminDefaultModel = 'large-v3-turbo';
+  export let showModelChoice = true;
+  export let showSummaryChoice = true;
   export let transcriptionSystemDefaults: TranscriptionSystemDefaults | null = null;
   export let tagsSkipped = false;
   export let collectionsSkipped = false;
@@ -106,12 +108,14 @@
       <span class="review-value">{getSpeakerLabel()}</span>
     </div>
 
-    <div class="review-row">
-      <span class="review-label">{$t('uploader.reviewModel')}</span>
-      <span class="review-value">{getModelLabel()}</span>
-    </div>
+    {#if showModelChoice}
+      <div class="review-row">
+        <span class="review-label">{$t('uploader.reviewModel')}</span>
+        <span class="review-value">{getModelLabel()}</span>
+      </div>
+    {/if}
 
-    {#if skipSummary}
+    {#if showSummaryChoice && skipSummary}
       <div class="review-row">
         <span class="review-label">{$t('upload.skipSummary')}</span>
         <span class="review-value">{$t('common.yes')}</span>

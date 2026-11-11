@@ -26,6 +26,7 @@
     DEFAULT_TRANSCRIPTION_SETTINGS
   } from '$lib/api/transcriptionSettings';
   import { ASRSettingsApi } from '$lib/api/asrSettings';
+  import { isLLMAvailable } from '$stores/llmStatus';
   import { getMaxUploadBytes, exceedsUploadLimit, warrantsLargeUploadWarning } from '$lib/utils/uploadLimits';
   import { listTags } from '$lib/api/tags';
 
@@ -88,7 +89,15 @@
   let currentStepIndex = 0;
   let maxStepReached = 0;
 
-  $: activeSteps = steps.filter(s => !s.skipped);
+  // Drop-and-go: a chosen file is sent at once with the user's saved defaults.
+  // The step wizard runs only when the user opts into options before choosing.
+  let wizardMode = false;
+  // Cloud ASR ignores the local Whisper choice; without an LLM no summary runs.
+  // The model step shows only what applies to this deployment, and vanishes when nothing does.
+  let cloudAsrActive = false;
+  $: showModelChoice = !cloudAsrActive;
+  $: showSummaryChoice = $isLLMAvailable;
+  $: activeSteps = steps.filter(s => !s.skipped && (s.id !== 'model' || showModelChoice || showSummaryChoice));
   $: currentStep = activeSteps[currentStepIndex];
   $: isFirstStep = currentStepIndex === 0;
   $: isLastStep = currentStepIndex === activeSteps.length - 1;
@@ -173,6 +182,8 @@
   // ── Lifecycle ──
   let handleSetTabEvent: ((event: Event) => void) | null = null;
   let handleDirectUpload: ((event: Event) => void) | null = null;
+  let handleDropMediaFiles: ((event: Event) => void) | null = null;
+  let filePanelRef: MediaFilePanel;
 
   onMount(() => {
     void loadProtectedMediaAuthConfig();
@@ -207,6 +218,12 @@
           diarization_source_default: 'provider', valid_diarization_sources: ['provider', 'local', 'pyannote', 'off']
         };
       }
+    })();
+
+    (async () => {
+      try {
+        cloudAsrActive = (await ASRSettingsApi.getStatus()).is_cloud_provider === true;
+      } catch { cloudAsrActive = false; }
     })();
 
     (async () => {
@@ -249,11 +266,22 @@
 
     window.addEventListener('setFileUploaderTab', handleSetTabEvent);
     window.addEventListener('directFileUpload', handleDirectUpload);
+
+    // Files dropped anywhere on the gallery: same path as a drop on the panel.
+    handleDropMediaFiles = (event: Event) => {
+      const files = (event as CustomEvent<{ files: File[] }>).detail?.files;
+      if (!files?.length) return;
+      activeTab = 'file';
+      currentStepIndex = 0;
+      void tick().then(() => filePanelRef?.acceptFiles(files));
+    };
+    window.addEventListener('dropMediaFiles', handleDropMediaFiles);
   });
 
   onDestroy(() => {
     if (handleSetTabEvent) window.removeEventListener('setFileUploaderTab', handleSetTabEvent);
     if (handleDirectUpload) window.removeEventListener('directFileUpload', handleDirectUpload);
+    if (handleDropMediaFiles) window.removeEventListener('dropMediaFiles', handleDropMediaFiles);
   });
 
   // ── Transcription Preferences ──
@@ -468,6 +496,8 @@
       needsExtraction = false;
       steps = steps.filter(s => s.id !== 'extraction');
     }
+
+    if (!wizardMode) handleSubmit();
   }
 
   function handleMultipleFiles(event: CustomEvent<{ files: File[] }>) {
@@ -853,11 +883,18 @@
           <!-- Tab Content -->
           {#if activeTab === 'file'}
             <MediaFilePanel
+              bind:this={filePanelRef}
               {file}
               on:fileSelect={handleFileSelect}
               on:multipleFiles={handleMultipleFiles}
               on:fileRemove={handleFileRemove}
             />
+            {#if !file}
+              <label class="wizard-toggle">
+                <input type="checkbox" bind:checked={wizardMode} />
+                <span>{$t('uploader.chooseOptionsFirst')}</span>
+              </label>
+            {/if}
           {:else if activeTab === 'url'}
             <MediaUrlPanel
               bind:this={urlPanelRef}
@@ -921,6 +958,8 @@
           <UploadStepModel
             bind:selectedWhisperModel
             {adminDefaultModel}
+            {showModelChoice}
+            {showSummaryChoice}
             bind:skipSummary
           />
 
@@ -937,6 +976,8 @@
             {skipSummary}
             {selectedWhisperModel}
             {adminDefaultModel}
+            {showModelChoice}
+            {showSummaryChoice}
             {transcriptionSystemDefaults}
             {tagsSkipped}
             {collectionsSkipped}
@@ -1196,6 +1237,8 @@
   .tab-button:disabled:hover { background: transparent; color: var(--text-secondary); }
 
   /* ── Messages ── */
+  .wizard-toggle { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.75rem; font-size: 0.8125rem; color: var(--text-secondary); cursor: pointer; }
+  .wizard-toggle input { accent-color: var(--primary-color); }
   .message { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.75rem; border-radius: 8px; margin-bottom: 0.75rem; font-size: 0.8125rem; }
   .message-icon { flex-shrink: 0; }
   .message-content { flex: 1; }

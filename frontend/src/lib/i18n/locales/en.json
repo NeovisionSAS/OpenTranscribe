@@ -5259,5 +5259,8 @@
   "settings.emailNotifications.links.warnConfigDisabled": "This email configuration is disabled, so nothing is sent through it.",
   "settings.emailNotifications.links.warnNoRecipients": "This configuration has no default recipients and none are added here, so nothing will be sent.",
   "settings.emailNotifications.links.deleteConfigTitle": "Delete this email configuration?",
-  "settings.emailNotifications.links.deleteConfigMessage": "Deleting \"{{name}}\" also detaches it from {{count}} watch source(s), which will stop being notified."
+  "settings.emailNotifications.links.deleteConfigMessage": "Deleting \"{{name}}\" also detaches it from {{count}} watch source(s), which will stop being notified.",
+  "uploader.chooseOptionsFirst": "Choose options before sending (speakers, tags, collections)",
+  "gallery.dropToTranscribe": "Drop the file to transcribe it",
+  "fileStatus.speakerProcessing": "Speaker analysis"
 }

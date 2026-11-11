@@ -60,7 +60,7 @@
       <Spinner size="small" color="white" />
       <span>{$t('fileDetail.aiSummary')}</span>
     </button>
-  {:else if file?.status === 'completed' && canEdit}
+  {:else if file?.status === 'completed' && canEdit && llmAvailable}
     <button
       class="generate-summary-btn"
       on:click={() => dispatch('generateSummary')}

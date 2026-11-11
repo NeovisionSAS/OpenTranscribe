@@ -534,7 +534,7 @@
 
 <style>
   .speaker-editor-container {
-    margin-top: 20px;
+    margin-bottom: 16px;
     padding: 20px;
     background: var(--background-secondary);
     border-radius: 8px;

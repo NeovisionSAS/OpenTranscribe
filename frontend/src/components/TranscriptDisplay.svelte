@@ -422,34 +422,8 @@
   </div>
 
   {#if file.transcript_segments && file.transcript_segments.length > 0}
-    <TranscriptSegmentList
-      {file}
-      {groupedTranscriptSegments}
-      {transcriptSegments}
-      {speakerList}
-      {currentTime}
-      {diarizationDisabled}
-      {editingSegmentId}
-      bind:editingSegmentText
-      {savingTranscript}
-      {searchQuery}
-      {searchMatches}
-      {currentMatchIndex}
-      {totalSegments}
-      {hasMoreSegments}
-      {loadingMoreSegments}
-      on:segmentClick
-      on:editSegment
-      on:saveSegment
-      on:cancelEditSegment
-      on:loadMore
-      on:seekToPlayhead
-      on:segmentSpeakerChange={handleSegmentSpeakerChange}
-      on:speakerCreatedFromDropdown={handleSpeakerCreated}
-      on:speakerUpdate
-    />
-
-
+    <!-- Actions (rename speakers, export) sit above the transcript so they are
+         reachable without scrolling past its fixed-height list. -->
     <TranscriptActionsBar
       {file}
       {diarizationDisabled}
@@ -477,6 +451,33 @@
         on:loadUpTo
       />
     {/if}
+
+    <TranscriptSegmentList
+      {file}
+      {groupedTranscriptSegments}
+      {transcriptSegments}
+      {speakerList}
+      {currentTime}
+      {diarizationDisabled}
+      {editingSegmentId}
+      bind:editingSegmentText
+      {savingTranscript}
+      {searchQuery}
+      {searchMatches}
+      {currentMatchIndex}
+      {totalSegments}
+      {hasMoreSegments}
+      {loadingMoreSegments}
+      on:segmentClick
+      on:editSegment
+      on:saveSegment
+      on:cancelEditSegment
+      on:loadMore
+      on:seekToPlayhead
+      on:segmentSpeakerChange={handleSegmentSpeakerChange}
+      on:speakerCreatedFromDropdown={handleSpeakerCreated}
+      on:speakerUpdate
+    />
   {:else if file.status === 'completed'}
     <p>{$t('transcript.noTranscriptAvailable')}</p>
   {:else if file.status === 'processing'}

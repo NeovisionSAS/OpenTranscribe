@@ -63,16 +63,17 @@
     dispatch('fileSelect', { file: processedFile });
   }
 
+  /** One entry point for every way files reach this panel (browse, drop here, drop on the page). */
+  export function acceptFiles(files: File[]) {
+    if (files.length === 1) handleFileSelect(files[0]);
+    else if (files.length > 1) dispatch('multipleFiles', { files });
+  }
+
   function handleFileInputChange(e: Event) {
     const target = e.target as HTMLInputElement;
     const files = target.files;
     if (!files || files.length === 0) return;
-
-    if (files.length === 1) {
-      handleFileSelect(files[0]);
-    } else {
-      dispatch('multipleFiles', { files: Array.from(files) });
-    }
+    acceptFiles(Array.from(files));
     target.value = '';
   }
 
@@ -101,14 +102,7 @@
     const dt = e.dataTransfer;
     if (!dt) return;
 
-    const files = dt.files;
-    if (files && files.length > 0) {
-      if (files.length === 1) {
-        handleFileSelect(files[0]);
-      } else {
-        dispatch('multipleFiles', { files: Array.from(files) });
-      }
-    }
+    if (dt.files.length > 0) acceptFiles(Array.from(dt.files));
   }
 
   function initDragAndDrop(dropZone: HTMLDivElement) {

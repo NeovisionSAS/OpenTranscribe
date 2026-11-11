@@ -102,7 +102,11 @@ function file(overrides: { name?: string; type?: string; size?: number } = {}): 
   return f;
 }
 
-async function selectFile(container: HTMLElement, selected: File) {
+/** Selects one file. `wizard` ticks "choose options first" beforehand; unticked,
+ * the uploader queues the file at once with the saved defaults. */
+async function selectFile(container: HTMLElement, selected: File, { wizard = true } = {}) {
+  const optionsBox = container.querySelector('.wizard-toggle input') as HTMLInputElement | null;
+  if (optionsBox && optionsBox.checked !== wizard) await fireEvent.click(optionsBox);
   const input = container.querySelector('input[type="file"]') as HTMLInputElement;
   Object.defineProperty(input, 'files', { configurable: true, value: [selected] });
   await fireEvent.change(input);
@@ -225,6 +229,28 @@ describe('dynamic extraction step', () => {
 
     await selectFile(container, file({ type: 'audio/mpeg', size: 1024 }));
     await waitFor(() => expect(container.querySelectorAll('.step-item')).toHaveLength(6));
+  });
+});
+
+describe('drop-and-go single file', () => {
+  it('queues one valid file at once with defaults, no wizard step', async () => {
+    const { container } = render(FileUploader);
+    await waitFor(() => expect(container.querySelector('input[type="file"]')).not.toBeNull());
+
+    await selectFile(container, file({ name: 'clip.mp3', size: 1024 }), { wizard: false });
+
+    expect(mockUploadsStore.addFile).toHaveBeenCalledTimes(1);
+    expect(mockUploadsStore.addFile.mock.calls[0][0].name).toBe('clip.mp3');
+  });
+
+  it('queues nothing for an invalid file', async () => {
+    const { container } = render(FileUploader);
+    await waitFor(() => expect(container.querySelector('input[type="file"]')).not.toBeNull());
+
+    await selectFile(container, file({ type: '', name: 'notes.txt' }), { wizard: false });
+
+    expect(mockUploadsStore.addFile).not.toHaveBeenCalled();
+    expect(container.querySelector('.error-msg')).not.toBeNull();
   });
 });
 

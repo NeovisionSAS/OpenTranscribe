@@ -36,6 +36,7 @@
 
   // Capability gating (chat surface)
   import { capabilities, isCapabilityEnabled } from '../stores/capabilities';
+  import { isLLMAvailable } from '../stores/llmStatus';
 
   // Gallery state detection based on location
   $: isGalleryPage = $page.url.pathname === '/' || ($page.url.pathname as string) === '';
@@ -68,9 +69,9 @@
   $: isChatActive = currentPath.startsWith('/chat');
   $: isSearchActive = currentPath.startsWith('/search');
   // Fail-open like every capability gate: hiding the link is cosmetic, the
-  // backend 404s the whole chat router when the capability is off. The link
-  // stays visible when the LLM is merely unconfigured — /chat shows the setup CTA.
-  $: chatEnabled = isCapabilityEnabled($capabilities, 'chat.rag');
+  // backend 404s the whole chat router when the capability is off. Without a
+  // configured LLM the chat cannot answer, so the link is hidden as well.
+  $: chatEnabled = isCapabilityEnabled($capabilities, 'chat.rag') && $isLLMAvailable;
   $: showGalleryLink = !isGalleryActive && !isTasksActive; // Show gallery link when not on gallery or tasks
 
   // User dropdown component reference (state lives in the child)
