@@ -931,6 +931,7 @@ def test_llm_connection(
 @router.post("/test-current", response_model=schemas.ConnectionTestResponse)
 def test_active_configuration(
     request: Request,
+    response: Response,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user),
 ) -> Any:
@@ -999,7 +1000,11 @@ def test_active_configuration(
     # the outbound rate limiter's per-user/per-IP key); omitting it is a TypeError at call time,
     # which is what broke both of these endpoints.
     result = test_llm_connection(
-        request=request, test_request=test_request, current_user=current_user, db=db
+        request=request,
+        test_request=test_request,
+        response=response,  # slowapi writes its rate-limit headers onto this object
+        current_user=current_user,
+        db=db,
     )
 
     # Only write back test status if the current user owns the config
@@ -1018,6 +1023,7 @@ def test_active_configuration(
 def test_specific_configuration(
     config_uuid: str,
     request: Request,
+    response: Response,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user),
 ) -> Any:
@@ -1056,7 +1062,11 @@ def test_specific_configuration(
     # the outbound rate limiter's per-user/per-IP key); omitting it is a TypeError at call time,
     # which is what broke both of these endpoints.
     result = test_llm_connection(
-        request=request, test_request=test_request, current_user=current_user, db=db
+        request=request,
+        test_request=test_request,
+        response=response,  # slowapi writes its rate-limit headers onto this object
+        current_user=current_user,
+        db=db,
     )
 
     # Only write back test status if the current user owns the config

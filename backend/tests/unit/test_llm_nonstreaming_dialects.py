@@ -202,10 +202,9 @@ def test_extract_claude_response_reads_the_messages_api_shape():
     assert finish_reason == "end_turn"
 
 
-def test_extract_claude_response_only_reads_the_first_content_block():
-    """Pinned as-is: a `thinking` block ahead of `text` returns the (possibly empty)
-    thinking block's text, not the text block. Flagged as a follow-up in the PR body.
-    """
+def test_extract_claude_response_reads_text_blocks_past_thinking():
+    """Current models open with a `thinking` block (empty when omitted): the answer is
+    the `text` blocks, never `content[0]`."""
     service = _service(LLMProvider.ANTHROPIC)
     data = {
         "content": [
@@ -214,8 +213,7 @@ def test_extract_claude_response_only_reads_the_first_content_block():
         ],
     }
     content, _usage, _finish_reason = service._extract_claude_response(data)
-    # The first block has no "text" key at all, so `.get("text", "")` yields "".
-    assert content == ""
+    assert content == "The actual answer"
 
 
 def test_extract_claude_response_missing_usage_is_none_not_zero():

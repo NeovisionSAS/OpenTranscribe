@@ -25,6 +25,7 @@ from urllib3.util.retry import Retry
 
 from app.core.config import settings
 from app.core.constants import LLM_OUTPUT_LANGUAGES
+from app.services import llm_request_features as request_features
 from app.services.llm_stream import LLMStreamEvent
 from app.services.llm_stream import apply_stream_payload
 from app.services.llm_stream import get_stream_parser
@@ -43,6 +44,24 @@ OPENAI_REASONING_MODEL_PREFIXES = (
     "o4",  # o4-mini
     "gpt-5",  # gpt-5 series
 )
+
+
+def _continue_reply_after_prefill(body: dict[str, Any], prefill: str) -> None:
+    """Rewrite, in place, the reply text of an Anthropic or OpenAI-shaped ``body``."""
+    blocks = body.get("content")
+    if isinstance(blocks, list):
+        for block in blocks:  # the first `text` block: a `thinking` block may precede it
+            if isinstance(block, dict) and block.get("type", "text") == "text":
+                text = str(block.get("text", ""))
+                block["text"] = request_features.continue_after_prefill(text, prefill)
+                return
+    choices = body.get("choices")
+    if isinstance(choices, list) and choices:
+        message = choices[0].get("message") or {}
+        if isinstance(message.get("content"), str):
+            message["content"] = request_features.continue_after_prefill(
+                message["content"], prefill
+            )
 
 
 class LLMProvider(StrEnum):
@@ -412,8 +431,14 @@ class LLMService:
             raise Exception("No content in Claude response")
 
         content_blocks = data["content"]
-        if isinstance(content_blocks, list) and content_blocks:
-            content = content_blocks[0].get("text", "")
+        if isinstance(content_blocks, list):
+            # Only `text` blocks are the answer: current models open with a `thinking`
+            # block (empty when its text is omitted), so `content[0]` is not the reply.
+            content = "".join(
+                str(block.get("text", ""))
+                for block in content_blocks
+                if isinstance(block, dict) and block.get("type", "text") == "text"
+            )
         else:
             content = str(content_blocks)
 
@@ -559,7 +584,43 @@ class LLMService:
     def _send_llm_request(
         self, url: str, payload: dict, headers: dict, timeout: int
     ) -> dict[str, Any]:
-        """Send HTTP request to LLM provider and return parsed JSON response."""
+        """Send HTTP request to LLM provider and return parsed JSON response.
+
+        A 400 refusing a request feature the payload carries (``temperature``,
+        ``top_p``, an assistant prefill — see ``llm_request_features``) is learned for
+        this (provider, model), the feature dropped and the request resent; features
+        learned earlier are dropped before the first attempt. A dropped prefill is
+        emulated on the returned body, so it reads as the prefilled reply would.
+        """
+        key = (self.config.provider.value, str(payload.get("model", self.config.model)))
+        payload = {**payload, "messages": list(payload.get("messages") or [])}
+        prefill = request_features.strip_learned(key, payload).prefill
+        response = self._post_llm(url, payload, headers, timeout)
+        while (
+            refused := request_features.learn_refusal(
+                key, payload, response.status_code, response.text
+            )
+        ) is not None:
+            logger.info(f"{key[0]}/{key[1]} refuses `{refused}`: resending without it")
+            prefill = request_features.strip_learned(key, payload).prefill or prefill
+            response = self._post_llm(url, payload, headers, timeout)
+
+        if response.status_code != 200:
+            error_detail = f"LLM API error ({response.status_code}): {response.text[:500]}{'...' if len(response.text) > 500 else ''}"
+            logger.error(error_detail)
+            raise Exception(f"LLM API error: {response.status_code} - {response.text}")
+
+        try:
+            result: dict[str, Any] = response.json()
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse LLM response: {response.text}")
+            raise Exception(f"Invalid JSON response: {e}") from e
+        if prefill:
+            _continue_reply_after_prefill(result, prefill)
+        return result
+
+    def _post_llm(self, url: str, payload: dict, headers: dict, timeout: int) -> requests.Response:
+        """POST ``payload`` once to the pinned endpoint and log the outcome."""
         session, target = self._endpoint_session(url)
         start_time = time.time()
         # `allow_redirects=False`: the pin covers ONE hop. A public endpoint that passes
@@ -573,23 +634,11 @@ class LLMService:
             timeout=timeout,
             allow_redirects=False,
         )
-        request_time = time.time() - start_time
-
         logger.info(
-            f"LLM request completed in {request_time:.2f}s with status {response.status_code}"
+            f"LLM request completed in {time.time() - start_time:.2f}s "
+            f"with status {response.status_code}"
         )
-
-        if response.status_code != 200:
-            error_detail = f"LLM API error ({response.status_code}): {response.text[:500]}{'...' if len(response.text) > 500 else ''}"
-            logger.error(error_detail)
-            raise Exception(f"LLM API error: {response.status_code} - {response.text}")
-
-        try:
-            result: dict[str, Any] = response.json()
-            return result
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse LLM response: {response.text}")
-            raise Exception(f"Invalid JSON response: {e}") from e
+        return response
 
     def _resolve_endpoint(self) -> str:
         """Return the HTTP endpoint for the configured provider, or raise.
@@ -835,17 +884,29 @@ class LLMService:
             yield LLMStreamEvent(type="error", message=str(e))
             return
 
+        # Refused features: dropped up front once learned, else learned from the 400
+        # (sent before any stream byte) and resent — see `_send_llm_request`.
+        key = (provider, str(payload.get("model", self.config.model)))
+        payload["messages"] = list(payload.get("messages") or [])
+        request_features.strip_learned(key, payload)
         try:
-            # (connect, read) — a 120s idle gap means the provider stopped producing.
-            # `allow_redirects=False` for the reason given in `_send_llm_request`.
-            response = session.post(
-                target.url,
-                json=payload,
-                headers={**headers, **target.headers},
-                timeout=(10, 120),
-                stream=True,
-                allow_redirects=False,
-            )
+            while True:
+                # (connect, read) — a 120s idle gap means the provider stopped producing.
+                # `allow_redirects=False` for the reason given in `_send_llm_request`.
+                response = session.post(
+                    target.url,
+                    json=payload,
+                    headers={**headers, **target.headers},
+                    timeout=(10, 120),
+                    stream=True,
+                    allow_redirects=False,
+                )
+                if response.status_code != 400 or not request_features.learn_refusal(
+                    key, payload, response.status_code, response.text
+                ):
+                    break
+                response.close()
+                request_features.strip_learned(key, payload)
         except requests.exceptions.RequestException as e:
             logger.error(f"LLM stream connection failed for {provider}: {type(e).__name__}")
             yield LLMStreamEvent(type="error", message=f"Connection error: {e}")
