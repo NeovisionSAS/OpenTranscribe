@@ -7,6 +7,7 @@ from dataclasses import field
 from typing import Any
 
 from app.utils.language import normalize_language
+from app.utils.token_spacing import join_split_tokens
 
 
 @dataclass
@@ -58,7 +59,7 @@ class ASRSegment:
 class ASRResult:
     """Full result from an ASR provider transcription.
 
-    ``language`` is **normalized on construction** — this is the boundary between ten vendors
+    ``language`` and each segment's ``text`` are **normalized on construction** — this is the boundary between ten vendors
     that do not agree on the shape of a language code and a column every redaction, chat and
     search reader keys on (issue #545). ``openai_provider`` returns whatever the API's
     ``resp.language`` says (a NAME, e.g. ``"english"``), ``gladia_provider`` the first entry of
@@ -81,3 +82,7 @@ class ASRResult:
 
     def __post_init__(self) -> None:
         self.language = normalize_language(self.language)
+        # Same boundary for segment text: providers join word tokens with a space, which split
+        # French elisions and hyphenated words (« c 'est », « jusque -là »); see token_spacing.
+        for segment in self.segments:
+            segment.text = join_split_tokens(segment.text)
