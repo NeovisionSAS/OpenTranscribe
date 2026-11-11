@@ -933,6 +933,11 @@ class Settings(BaseSettings):
     # startup instead of silently degrading — deliberate, see model_config's
     # docstring above.
     NUM_SPEAKERS: int | None = None
+    # A diarized speaker whose total speech is under BOTH limits is a phantom
+    # (a few short clips the provider split off a real voice): its segments are
+    # given to the nearest real speaker in time. Either limit at 0 disables it.
+    DIARIZATION_MINOR_SPEAKER_MAX_SECONDS: float = 10.0
+    DIARIZATION_MINOR_SPEAKER_MAX_SHARE: float = 0.03
 
     # Diarization embedding batch size is pinned at 16 in
     # backend/app/transcription/diarizer.py. See

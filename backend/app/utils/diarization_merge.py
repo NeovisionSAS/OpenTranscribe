@@ -111,3 +111,68 @@ def merge_cloud_diarization(
             "diarization_model": diarize_result.model_name,
         },
     )
+
+
+def absorb_minor_speakers(
+    segments: list[dict],
+    max_seconds: float,
+    max_share: float,
+    min_speakers: int = 1,
+) -> list[dict]:
+    """Give the segments of phantom speakers to the nearest real speaker in time.
+
+    A speaker is minor when its total speech is under ``max_seconds`` AND under
+    ``max_share`` of all labelled speech. Each of its segments takes the speaker
+    of the closest segment (smallest gap, earlier one on a tie) held by a kept
+    speaker. The smallest minor speakers go first, and never so many that fewer
+    than ``min_speakers`` remain. Segments without a speaker are left as they are.
+
+    Args:
+        segments: Segment dicts with ``start``, ``end`` and ``speaker`` keys.
+        max_seconds: Total-speech limit in seconds.
+        max_share: Total-speech limit as a fraction of all labelled speech.
+        min_speakers: Speaker count the result never drops below.
+
+    Returns:
+        New segment dicts (inputs untouched), minor speakers relabelled.
+    """
+    totals: dict[str, float] = {}
+    for seg in segments:
+        if seg.get("speaker"):
+            totals[seg["speaker"]] = totals.get(seg["speaker"], 0.0) + seg["end"] - seg["start"]
+    speech = sum(totals.values())
+    if speech <= 0:
+        return [dict(seg) for seg in segments]
+
+    minor = sorted(
+        (spk for spk, t in totals.items() if t < max_seconds and t / speech < max_share),
+        key=totals.__getitem__,
+    )[: max(0, len(totals) - max(min_speakers, 1))]
+    if not minor:
+        return [dict(seg) for seg in segments]
+
+    order = sorted(range(len(segments)), key=lambda i: segments[i]["start"])
+    kept = [i for i in order if segments[i].get("speaker") in totals.keys() - set(minor)]
+    kept_starts = [segments[i]["start"] for i in kept]
+
+    def _gap(i: int, j: int) -> float:
+        a, b = segments[i], segments[j]
+        return max(0.0, b["start"] - a["end"], a["start"] - b["end"])
+
+    result = [dict(seg) for seg in segments]
+    for i, seg in enumerate(segments):
+        if seg.get("speaker") not in minor:
+            continue
+        pos = bisect.bisect_left(kept_starts, seg["start"])
+        neighbours = kept[max(0, pos - 1) : pos + 1]
+        nearest = min(neighbours, key=lambda j: (_gap(i, j), segments[j]["start"] > seg["start"]))
+        result[i]["speaker"] = segments[nearest]["speaker"]
+
+    logger.info(
+        "Absorbed %d minor speaker(s) %s (%.1fs of %.1fs speech) into nearest speakers",
+        len(minor),
+        {spk: round(totals[spk], 1) for spk in minor},
+        sum(totals[spk] for spk in minor),
+        speech,
+    )
+    return result

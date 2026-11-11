@@ -5,6 +5,7 @@ import logging
 
 from app.core.config import settings
 from app.db.session_utils import session_scope
+from app.utils.diarization_merge import absorb_minor_speakers
 from app.utils.task_utils import update_task_status
 
 from .context import TranscriptionContext
@@ -281,7 +282,12 @@ def _run_cloud_asr_pipeline(
         asr_result = provider.transcribe(audio_file_path, config, cloud_progress_callback)
 
     # Convert ASRResult to the dict format the rest of the pipeline expects
-    raw_segments = _convert_asr_result_to_segments(asr_result, ctx.file_id)
+    raw_segments = absorb_minor_speakers(
+        _convert_asr_result_to_segments(asr_result, ctx.file_id),
+        max_seconds=settings.DIARIZATION_MINOR_SPEAKER_MAX_SECONDS,
+        max_share=settings.DIARIZATION_MINOR_SPEAKER_MAX_SHARE,
+        min_speakers=config.num_speakers or config.min_speakers or 1,
+    )
 
     seg_speakers: set[str] = {s["speaker"] for s in raw_segments if s.get("speaker")}
     logger.info(

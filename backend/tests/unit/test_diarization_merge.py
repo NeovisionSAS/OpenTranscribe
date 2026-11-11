@@ -14,6 +14,7 @@ from app.services.asr.types import ASRSegment
 from app.services.asr.types import ASRWord
 from app.services.diarization.types import DiarizeResult
 from app.services.diarization.types import DiarizeSegment
+from app.utils.diarization_merge import absorb_minor_speakers
 from app.utils.diarization_merge import merge_cloud_diarization
 
 pytestmark = pytest.mark.unit
@@ -281,3 +282,95 @@ def test_confidence_is_preserved_on_the_merged_segment():
     result = merge_cloud_diarization(asr, diarize)
 
     assert result.segments[0].confidence == 0.42
+
+
+# =============================================================================
+# Minor (phantom) speakers absorbed into the nearest real speaker
+# =============================================================================
+def _turns(*turns: tuple[str | None, float]) -> list[dict]:
+    """Back-to-back segments, 0.5 s apart, from (speaker, seconds) pairs."""
+    segs, t = [], 0.0
+    for speaker, seconds in turns:
+        segs.append({"start": t, "end": t + seconds, "speaker": speaker, "text": "x"})
+        t += seconds + 0.5
+    return segs
+
+
+# Speaker totals of real recordings (seconds of speech per diarized label).
+_RECORDINGS = {
+    # 37 min meeting: 2 voices; SPEAKER_01 = 5 short clips (5.3 s), SPEAKER_02 = 1 clip (3.1 s)
+    "meeting_37min_2_phantoms": (
+        _turns(
+            ("A", 350),
+            ("C", 0.4),
+            ("A", 350),
+            ("C", 0.3),
+            ("B", 700),
+            ("C", 0.4),
+            ("B", 700),
+            ("D", 3.1),
+            ("A", 1.5),
+            ("C", 0.8),
+            ("B", 35.6),
+            ("C", 3.4),
+        ),
+        {"A", "B"},
+    ),
+    "excerpt_5min": (_turns(("A", 50), ("B", 100), ("A", 53.4), ("B", 91.9)), {"A", "B"}),
+    "clip_45s": (_turns(("A", 15.8), ("B", 27.1)), {"A", "B"}),
+    "clip_30s": (_turns(("A", 14.6), ("B", 13.7)), {"A", "B"}),
+    "real_third_speaker_30s_in_37min": (
+        _turns(("A", 1100), ("C", 15), ("B", 1000), ("C", 15)),
+        {"A", "B", "C"},
+    ),
+    "short_turn_large_share_kept": (_turns(("A", 30), ("C", 4), ("B", 30)), {"A", "B", "C"}),
+}
+
+
+@pytest.mark.parametrize("name", list(_RECORDINGS))
+def test_minor_speakers_absorbed_only_when_tiny_in_time_and_share(name):
+    segments, expected = _RECORDINGS[name]
+
+    result = absorb_minor_speakers(segments, max_seconds=10.0, max_share=0.03)
+
+    assert {s["speaker"] for s in result} == expected
+    assert [(s["start"], s["end"]) for s in result] == [(s["start"], s["end"]) for s in segments]
+
+
+def _seg(start: float, end: float, speaker: str | None) -> dict:
+    return {"start": start, "end": end, "speaker": speaker, "text": "x"}
+
+
+@pytest.mark.parametrize(
+    ("segments", "expected"),
+    [
+        # sandwiched in A's speech: both neighbours agree
+        ([_seg(0, 60, "A"), _seg(60, 61, "X"), _seg(61, 120, "A"), _seg(121, 400, "B")], "A"),
+        # nearest by gap: 0.1 s to B beats 2 s to A
+        ([_seg(0, 300, "A"), _seg(302, 303, "X"), _seg(303.1, 600, "B")], "B"),
+        # equal gaps: the earlier speaker wins
+        ([_seg(0, 300, "A"), _seg(301, 302, "X"), _seg(303, 600, "B")], "A"),
+        # no speaker stays no speaker
+        ([_seg(0, 300, "A"), _seg(301, 302, None), _seg(303, 600, "B")], None),
+    ],
+)
+def test_phantom_segment_takes_the_nearest_kept_speaker(segments, expected):
+    result = absorb_minor_speakers(segments, max_seconds=10.0, max_share=0.03)
+
+    assert result[1]["speaker"] == expected
+
+
+def test_requested_speaker_count_is_never_merged_below():
+    segments = _turns(("A", 1000), ("C", 2), ("B", 1000), ("D", 3))
+
+    result = absorb_minor_speakers(segments, max_seconds=10.0, max_share=0.03, min_speakers=3)
+
+    assert {s["speaker"] for s in result} == {"A", "B", "D"}
+
+
+def test_zero_limit_disables_and_input_is_not_mutated():
+    segments = _turns(("A", 1000), ("C", 2), ("B", 1000))
+
+    assert absorb_minor_speakers(segments, max_seconds=0.0, max_share=0.03) == segments
+    absorb_minor_speakers(segments, max_seconds=10.0, max_share=0.03)
+    assert segments[1]["speaker"] == "C"
