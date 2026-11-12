@@ -5,7 +5,7 @@
 # Re-running is safe: secrets and the API key already in .env are kept, the
 # containers are rebuilt from this folder's code and restarted.
 #
-# Needs Docker Desktop running. See INSTALL.md.
+# Needs Docker Desktop running. See README.md.
 
 # Continue, not Stop: Windows PowerShell 5.1 turns a native command's stderr into a
 # terminating error under Stop. Every step checks its own result instead.
@@ -78,7 +78,7 @@ function Set-EnvValue($Lines, [string]$Key, [string]$Value) {
 
 Write-Step 'Verification de Docker'
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
-    Stop-WithError 'Docker est introuvable. Installez Docker Desktop (voir INSTALL.md), redemarrez le PC, puis relancez ce script.'
+    Stop-WithError 'Docker est introuvable. Installez Docker Desktop (voir README.md), redemarrez le PC, puis relancez ce script.'
 }
 docker info *> $null
 if ($LASTEXITCODE -ne 0) {
